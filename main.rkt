@@ -61,6 +61,9 @@
    "yandex\\.net"   (provider "Yandex"
                               "include:_spf.yandex.net"
                               "https://yandex.com/support/connect/dns/spf.html")
+   "serverdata\\.net" (provider "Intermedia Cloud Communications"
+                                "include:spf.intermedia.net"
+                                "https://support.intermedia.com/app/articles/detail/a_id/24972/kw/exchange%20spf")
    "outlook\\.com"  (provider "Microsoft 365"
                               "include:spf.protection.outlook.com"
                               "https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/set-up-spf-in-office-365-to-help-prevent-spoofing?view=o365-worldwide")
@@ -104,6 +107,9 @@
           [(list* (? string? spf) _) spf]
           [_ "SPF NOT FOUND"])))
 
+(define (update-spf oldrec include)
+  (regexp-replace #rx" ([-+~]all)" oldrec @~a{ @include \1}))
+
 (define (get-mx-service domain)
   (server->provider (string-downcase (dns-get-mail-exchanger (dns-find-nameserver) domain))))
 
@@ -140,7 +146,10 @@
     (if (regexp-match? provider-spf "unknown")
         next-steps-unknown
         (replace-report-fields next-steps-known
-                               (hash "{DIRECTIVE}" provider-spf "{DOCS}" provider-docs "{SERVICE}" mail-provider-name))))
+                               (hash "{DIRECTIVE}" provider-spf
+                                     "{DOCS}" provider-docs
+                                     "{NEWSPFRECORD}" (update-spf spf provider-spf)
+                                     "{SERVICE}" mail-provider-name))))
   
   (define report-fields
     (hash "{COMPANY}" my-company-name
@@ -159,7 +168,9 @@
   (send the-clipboard set-clipboard-string filled-report 0))
 
 (define next-steps-known @~a{
-Since your organization sends email via {SERVICE}, you MUST include the directive {DIRECTIVE} in your SPF record. (See their documentation at {DOCS})
+Since your organization sends email via {SERVICE}, you MUST include the directive {DIRECTIVE} in your SPF record. (See their documentation at {DOCS} to verify this.) The updated record would read as follows:
+
+{NEWSPFRECORD}
 })
 
 (define next-steps-unknown @~a{
